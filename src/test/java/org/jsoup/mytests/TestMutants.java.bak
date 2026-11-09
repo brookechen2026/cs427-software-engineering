@@ -1,0 +1,523 @@
+package org.jsoup.mytests;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
+import org.junit.Test;
+
+import java.util.List;
+
+import static org.junit.Assert.*;
+
+public class TestMutants {
+
+    @Test
+    public void testBasicParseNotNull() {
+        Document doc = Jsoup.parse("<html><body><p>Hello</p></body></html>");
+        assertNotNull(doc);
+        assertEquals("Hello", doc.select("p").text());
+    }
+
+    @Test
+    public void testEmptyInput() {
+        Document doc = Jsoup.parse("");
+        assertNotNull(doc);
+        assertEquals("", doc.text());
+        assertEquals(1, doc.childNodeSize());
+    }
+
+    @Test
+    public void testTableParsing() {
+        Document doc = Jsoup.parse("<table><tr><td>A</td></tr></table>");
+        assertEquals("A", doc.select("td").text());
+        assertEquals(1, doc.select("tr").size());
+        assertEquals(1, doc.select("td").size());
+    }
+
+    @Test
+    public void testTableBodyInsertion() {
+        Document doc = Jsoup.parse("<table><tr><td>One</td></tr></table>");
+        assertEquals(1, doc.select("tbody").size());
+        assertEquals("One", doc.select("tbody td").text());
+    }
+
+    @Test
+    public void testFormParsing() {
+        Document doc = Jsoup.parse("<form><input name='x' value='1'></form>");
+        assertEquals(1, doc.select("form").size());
+        assertEquals("1", doc.select("input").attr("value"));
+        assertEquals("x", doc.select("input").attr("name"));
+    }
+
+    @Test
+    public void testDeepNesting() {
+        Document doc = Jsoup.parse("<div><span><b>Text</b></span></div>");
+        assertEquals("Text", doc.select("b").text());
+        assertEquals(1, doc.select("div span b").size());
+    }
+
+    @Test
+    public void testMultipleTags() {
+        Document doc = Jsoup.parse("<p>A</p><p>B</p><p>C</p>");
+        assertEquals(3, doc.select("p").size());
+        assertEquals("ABC", doc.select("p").text().replace(" ", ""));
+    }
+
+    @Test
+    public void testInvalidHtml() {
+        Document doc = Jsoup.parse("<div><p>Test");
+        assertTrue(doc.text().contains("Test"));
+        assertEquals(1, doc.select("div").size());
+        assertEquals(1, doc.select("p").size());
+    }
+
+    @Test
+    public void testBaseUriPreserved() {
+        Document doc = Jsoup.parse("<a href='/path'>Link</a>", "https://example.com/base/");
+        assertEquals("https://example.com/base/", doc.baseUri());
+        assertEquals("https://example.com/path", doc.select("a").first().absUrl("href"));
+    }
+
+    @Test
+    public void testParseFragmentInBodyContext() {
+        Element context = Jsoup.parse("<div id='ctx'></div>").selectFirst("div");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("<p>One</p><p>Two</p>", context, "https://example.com/");
+        assertEquals(2, nodes.size());
+        assertEquals("p", nodes.get(0).nodeName());
+        assertEquals("One", ((Element) nodes.get(0)).text());
+        assertEquals("Two", ((Element) nodes.get(1)).text());
+    }
+
+    @Test
+    public void testParseFragmentTableContext() {
+        Element context = Jsoup.parse("<table></table>").selectFirst("table");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("<tr><td>X</td></tr>", context, "");
+        assertEquals(1, nodes.size());
+        Element tr = (Element) nodes.get(0);
+        assertTrue(nodes.size() >= 1);
+        assertTrue(nodes.get(0) instanceof Element);
+        assertEquals("X", tr.select("td").text());
+    }
+
+    @Test
+    public void testSelectParsing() {
+        Document doc = Jsoup.parse("<select><option>One</option><option selected>Two</option></select>");
+        assertEquals(1, doc.select("select").size());
+        assertEquals(2, doc.select("option").size());
+        assertEquals("Two", doc.select("option[selected]").text());
+    }
+
+    @Test
+    public void testOptionOutsideSelectGetsHandled() {
+        Document doc = Jsoup.parse("<option>Lonely</option><select><option>Inside</option></select>");
+        assertTrue(doc.select("option").size() >= 1);
+        assertTrue(doc.text().contains("Lonely") || doc.text().contains("Inside"));
+    }
+
+    @Test
+    public void testFormattingElementsAndImpliedEndTags() {
+        Document doc = Jsoup.parse("<p><b>One<i>Two</b>Three</i>");
+        assertTrue(doc.text().contains("One"));
+        assertTrue(doc.text().contains("Two"));
+        assertTrue(doc.text().contains("Three"));
+        assertTrue(doc.select("b").size() >= 1);
+        assertTrue(doc.select("i").size() >= 1);
+    }
+
+    @Test
+    public void testFosterInsertsAroundTable() {
+        Document doc = Jsoup.parse("<table>Text<tr><td>Cell</td></tr></table>");
+        assertTrue(doc.text().contains("Text"));
+        assertEquals("Cell", doc.select("td").text());
+        assertEquals(1, doc.select("table").size());
+    }
+
+    @Test
+    public void testNestedTableStructure() {
+        Document doc = Jsoup.parse(
+                "<table><tr><td>Outer<table><tr><td>Inner</td></tr></table></td></tr></table>");
+        assertEquals(2, doc.select("table").size());
+        assertEquals(2, doc.select("td").size());
+        assertTrue(doc.text().contains("Outer"));
+        assertTrue(doc.text().contains("Inner"));
+    }
+
+    @Test
+    public void testFormInsideTable() {
+        Document doc = Jsoup.parse(
+                "<table><tr><td><form><input type='text' value='v'></form></td></tr></table>");
+        assertEquals(1, doc.select("form").size());
+        assertEquals("v", doc.select("input").attr("value"));
+        assertEquals(1, doc.select("table form input").size());
+    }
+
+    @Test
+    public void testFramesetDocument() {
+        Document doc = Jsoup.parse("<frameset><frame src='a.html'><frame src='b.html'></frameset>");
+        assertEquals(1, doc.select("frameset").size());
+        assertEquals(2, doc.select("frame").size());
+        assertEquals("a.html", doc.select("frame").first().attr("src"));
+    }
+
+    @Test
+    public void testNoscriptAndText() {
+        Document doc = Jsoup.parse("<noscript><p>Fallback</p></noscript><p>After</p>");
+        assertTrue(doc.text().contains("Fallback"));
+        assertTrue(doc.text().contains("After"));
+        assertEquals(1, doc.select("noscript").size());
+    }
+
+    @Test
+    public void testCommentsDoNotBreakTree() {
+        Document doc = Jsoup.parse("<div><!-- comment --><p>Visible</p></div>");
+        assertEquals("Visible", doc.select("p").text());
+        assertEquals(1, doc.select("div > p").size());
+    }
+
+    @Test
+    public void testHeadBodyAutoCreation() {
+        Document doc = Jsoup.parse("<title>T</title><p>B</p>");
+        assertEquals("T", doc.title());
+        assertEquals("B", doc.select("body p").text());
+        assertEquals(1, doc.select("head").size());
+        assertEquals(1, doc.select("body").size());
+    }
+
+    @Test
+    public void testScriptTagPreserved() {
+        Document doc = Jsoup.parse("<script>var x = 1 < 2;</script><p>Done</p>");
+        assertEquals(1, doc.select("script").size());
+        assertTrue(doc.html().contains("var x = 1 < 2;"));
+        assertEquals("Done", doc.select("p").text());
+    }
+
+    @Test
+    public void testTextareaPreserved() {
+        Document doc = Jsoup.parse("<textarea>hello\nworld</textarea>");
+        assertEquals("hello\nworld", doc.select("textarea").text());
+    }
+
+    @Test
+    public void testListParsing() {
+        Document doc = Jsoup.parse("<ul><li>A<li>B<li>C</ul>");
+        assertEquals(3, doc.select("li").size());
+        assertEquals("ABC", doc.select("li").text().replace(" ", ""));
+    }
+
+    @Test
+    public void testBooleanAttributes() {
+        Document doc = Jsoup.parse("<input disabled checked>");
+        Element input = doc.selectFirst("input");
+        assertNotNull(input);
+        assertTrue(input.hasAttr("disabled"));
+        assertTrue(input.hasAttr("checked"));
+    }
+
+    @Test
+    public void testAttributeRetention() {
+        Document doc = Jsoup.parse("<div data-x='1' class='a b'>Y</div>");
+        Element div = doc.selectFirst("div");
+        assertNotNull(div);
+        assertEquals("1", div.attr("data-x"));
+        assertTrue(div.hasClass("a"));
+        assertTrue(div.hasClass("b"));
+        assertEquals("Y", div.text());
+    }
+
+    @Test
+    public void testEntityDecoding() {
+        Document doc = Jsoup.parse("<p>&lt;tag&gt; &amp; text</p>");
+        assertEquals("<tag> & text", doc.select("p").text());
+    }
+
+    @Test
+    public void testBrHandling() {
+        Document doc = Jsoup.parse("<p>A<br>B</p>");
+        assertEquals(1, doc.select("br").size());
+        assertTrue(doc.select("p").html().contains("<br>"));
+        assertTrue(doc.text().contains("A"));
+        assertTrue(doc.text().contains("B"));
+    }
+    @Test
+    public void testParseFragmentKeepsBaseUri() {
+        Element context = Jsoup.parse("<div></div>", "https://base.example/").selectFirst("div");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("<a href='/x'>x</a>", context, "https://base.example/");
+        assertEquals(1, nodes.size());
+        Element a = (Element) nodes.get(0);
+        assertEquals("https://base.example/x", a.absUrl("href"));
+    }
+
+    @Test
+    public void testFragmentParsingInTitleContext() {
+        Element context = Jsoup.parse("<title></title>").selectFirst("title");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("Hello &amp; World", context, "https://ex/");
+        assertEquals(1, nodes.size());
+        assertTrue(nodes.get(0).outerHtml().contains("Hello"));
+    }
+
+    @Test
+    public void testFragmentParsingInTextareaContext() {
+        Element context = Jsoup.parse("<textarea></textarea>").selectFirst("textarea");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("a\nb<c>", context, "");
+        assertEquals(1, nodes.size());
+        assertTrue(nodes.get(0).outerHtml().contains("a"));
+    }
+
+    @Test
+    public void testFragmentParsingInSelectContext() {
+        Element context = Jsoup.parse("<select></select>").selectFirst("select");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("<option>One</option><option>Two</option>", context, "");
+        assertEquals(2, nodes.size());
+        assertEquals("option", nodes.get(0).nodeName());
+        assertEquals("One", ((Element) nodes.get(0)).text());
+        assertEquals("Two", ((Element) nodes.get(1)).text());
+    }
+
+    @Test
+    public void testFragmentParsingInTableBodyContext() {
+        Element context = Jsoup.parse("<table><tbody></tbody></table>").selectFirst("tbody");
+        List<org.jsoup.nodes.Node> nodes =
+                Parser.parseFragment("<tr><td>Z</td></tr>", context, "");
+        assertTrue(nodes.size() >= 1);
+        assertTrue(nodes.get(0).outerHtml().contains("td"));
+        assertTrue(nodes.get(0).outerHtml().contains("Z"));
+    }
+
+    @Test
+    public void testBaseUriOnParsedDocument() {
+        Document doc = Jsoup.parse("<img src='img.png'><a href='p.html'>p</a>", "https://site.example/dir/");
+        assertEquals("https://site.example/dir/", doc.baseUri());
+        assertEquals("https://site.example/dir/img.png", doc.selectFirst("img").absUrl("src"));
+        assertEquals("https://site.example/dir/p.html", doc.selectFirst("a").absUrl("href"));
+    }
+
+    @Test
+    public void testHeadElementCreatedAndUsed() {
+        Document doc = Jsoup.parse("<meta charset='utf-8'><title>X</title><p>Body</p>");
+        assertNotNull(doc.head());
+        assertEquals(1, doc.head().select("meta").size());
+        assertEquals("X", doc.title());
+        assertEquals("Body", doc.selectFirst("p").text());
+    }
+
+    @Test
+    public void testFormElementTracking() {
+        Document doc = Jsoup.parse("<form id='f'><input name='a' value='1'><button>Go</button></form>");
+        Element form = doc.selectFirst("form");
+        assertNotNull(form);
+        assertEquals("f", form.id());
+        assertEquals(1, form.select("input").size());
+        assertEquals("1", form.selectFirst("input").attr("value"));
+        assertEquals("Go", form.selectFirst("button").text());
+    }
+
+    @Test
+    public void testNestedFormattingElements() {
+        Document doc = Jsoup.parse("<p><b class='x'>1<i>2</i>3</b></p>");
+        assertEquals("123", doc.selectFirst("p").text().replace(" ", ""));
+        assertNotNull(doc.selectFirst("b.x"));
+        assertNotNull(doc.selectFirst("i"));
+    }
+
+    @Test
+    public void testDuplicateFormattingElementsWithAttributes() {
+        Document doc = Jsoup.parse("<p><b id='one'>A</b><b id='two'>B</b></p>");
+        assertEquals(2, doc.select("b").size());
+        assertEquals("one", doc.select("b").get(0).id());
+        assertEquals("two", doc.select("b").get(1).id());
+    }
+
+    @Test
+    public void testFosterParentingWithTextAroundTable() {
+        Document doc = Jsoup.parse("<div><table><tr><td>Cell</td></tr></table>tail</div>");
+        assertEquals("Cell", doc.selectFirst("td").text());
+        assertTrue(doc.text().contains("tail"));
+    }
+
+    @Test
+    public void testFosterParentingParagraphInTable() {
+        Document doc = Jsoup.parse("<table><p>Para</p><tr><td>T</td></tr></table>");
+        assertTrue(doc.text().contains("Para"));
+        assertEquals("T", doc.selectFirst("td").text());
+    }
+
+    @Test
+    public void testSelectScopeWithOptgroup() {
+        Document doc = Jsoup.parse("<select><optgroup label='g'><option>A</option></optgroup><option>B</option></select>");
+        assertEquals(1, doc.select("select").size());
+        assertEquals(1, doc.select("optgroup").size());
+        assertEquals(2, doc.select("option").size());
+        assertEquals("A", doc.select("option").get(0).text());
+        assertEquals("B", doc.select("option").get(1).text());
+    }
+
+    @Test
+    public void testMalformedSelectStillProducesOptions() {
+        Document doc = Jsoup.parse("<select><option>One<option>Two</select>");
+        assertEquals(2, doc.select("option").size());
+        assertEquals("One", doc.select("option").get(0).text());
+        assertEquals("Two", doc.select("option").get(1).text());
+    }
+
+    @Test
+    public void testListItemScopeWithNestedLists() {
+        Document doc = Jsoup.parse("<ul><li>One<ul><li>Two</li></ul></li><li>Three</li></ul>");
+        assertEquals(3, doc.select("li").size());
+        assertTrue(doc.text().contains("One"));
+        assertTrue(doc.text().contains("Two"));
+        assertTrue(doc.text().contains("Three"));
+    }
+
+    @Test
+    public void testButtonScope() {
+        Document doc = Jsoup.parse("<button><span>A</span></button><p>B</p>");
+        assertEquals("A", doc.selectFirst("button").text());
+        assertEquals("B", doc.selectFirst("p").text());
+    }
+
+    @Test
+    public void testTableScopeWithCaptionAndTbody() {
+        Document doc = Jsoup.parse("<table><caption>C</caption><tbody><tr><td>D</td></tr></tbody></table>");
+        assertEquals("C", doc.selectFirst("caption").text());
+        assertEquals("D", doc.selectFirst("td").text());
+    }
+
+    @Test
+    public void testActiveFormattingElementBehavior() {
+        Document doc = Jsoup.parse("<p><a href='/x'><b>Bold</b></a></p>");
+        assertEquals("Bold", doc.selectFirst("a").text());
+        assertEquals("/x", doc.selectFirst("a").attr("href"));
+        assertEquals(1, doc.select("a b").size());
+    }
+
+    @Test
+    public void testAttributesCopiedOnNestedElements() {
+        Document doc = Jsoup.parse("<div><span data-a='1' class='c1 c2'>X</span></div>");
+        Element span = doc.selectFirst("span");
+        assertNotNull(span);
+        assertEquals("1", span.attr("data-a"));
+        assertTrue(span.hasClass("c1"));
+        assertTrue(span.hasClass("c2"));
+    }
+
+    @Test
+    public void testParserToStringNotEmpty() {
+        Parser parser = Parser.htmlParser();
+        assertNotNull(parser);
+        assertTrue(parser.toString().length() > 0);
+    }
+
+    @Test
+    public void testBaseHrefUpdatesDocumentBaseUri() {
+        Document doc = Jsoup.parse(
+                "<html><head><base href='https://cdn.example.com/assets/'></head>" +
+                "<body><a href='x.html'>X</a></body></html>",
+                "https://orig.example/");
+        assertEquals("https://cdn.example.com/assets/", doc.baseUri());
+        assertEquals("https://cdn.example.com/assets/x.html",
+                doc.selectFirst("a").absUrl("href"));
+    }
+
+    @Test
+    public void testOnlyFirstBaseHrefWins() {
+        Document doc = Jsoup.parse(
+                "<html><head>" +
+                "<base href='https://first.example/'>" +
+                "<base href='https://second.example/'>" +
+                "</head><body><img src='a.png'></body></html>",
+                "https://orig.example/");
+        assertEquals("https://first.example/", doc.baseUri());
+        assertEquals("https://first.example/a.png",
+                doc.selectFirst("img").absUrl("src"));
+    }
+
+    @Test
+    public void testDuplicateAttributesDeduplicated() {
+        Document doc = Jsoup.parse("<img src='a.png' src='b.png' alt='x'>");
+        Element img = doc.selectFirst("img");
+        assertNotNull(img);
+        assertTrue(img.hasAttr("src"));
+        assertTrue(img.hasAttr("alt"));
+    }
+
+    @Test
+    public void testSelfClosingUnknownTagPreserved() {
+        Document doc = Jsoup.parse("<custom-tag />");
+        assertEquals(1, doc.select("custom-tag").size());
+    }
+
+    @Test
+    public void testSelfClosingNonVoidTagHandled() {
+        Document doc = Jsoup.parse("<div />");
+        assertEquals(1, doc.select("div").size());
+    }
+
+    @Test
+    public void testFormContainsMultipleListedControls() {
+        Document doc = Jsoup.parse(
+                "<form id='f'>" +
+                "<input name='a' value='1'>" +
+                "<button type='submit'>Go</button>" +
+                "<select name='s'><option>One</option></select>" +
+                "</form>");
+        Element form = doc.selectFirst("form#f");
+        assertNotNull(form);
+        assertEquals(1, form.select("input[name=a]").size());
+        assertEquals(1, form.select("button[type=submit]").size());
+        assertEquals(1, form.select("select[name=s]").size());
+        assertEquals("One", form.selectFirst("option").text());
+    }
+
+    @Test
+    public void testSelectWithNestedOptionAndOptgroup() {
+        Document doc = Jsoup.parse(
+                "<select>" +
+                "<optgroup label='g1'><option>A</option></optgroup>" +
+                "<option>B</option>" +
+                "</select>");
+        assertEquals(2, doc.select("option").size());
+        assertEquals(1, doc.select("optgroup").size());
+    }
+
+    @Test
+    public void testMalformedSelectWithNonOptionContent() {
+        Document doc = Jsoup.parse("<select><option>A</option><div>X</div><option>B</option></select>");
+        assertTrue(doc.select("option").size() >= 2 || doc.text().contains("X"));
+    }
+
+    @Test
+    public void testHeadContainsBaseMetaTitle() {
+        Document doc = Jsoup.parse(
+                "<html><head>" +
+                "<base href='https://h.example/'>" +
+                "<meta charset='utf-8'>" +
+                "<title>T</title>" +
+                "</head><body><a href='p'>P</a></body></html>",
+                "https://orig.example/");
+        assertEquals("T", doc.title());
+        assertEquals(1, doc.head().select("base").size());
+        assertEquals(1, doc.head().select("meta").size());
+        assertEquals("https://h.example/p", doc.selectFirst("a").absUrl("href"));
+    }
+
+    @Test
+    public void testFormattingElementAttributesSurviveReconstruction() {mvn -Dtest=TestMutants test
+        Document doc = Jsoup.parse(
+                "<p><b class='keep' data-x='1'>One<table><tr><td>Cell</td></tr></table>Two</b></p>");
+        Element b = doc.selectFirst("b.keep");
+        assertNotNull(b);
+        assertEquals("1", b.attr("data-x"));
+        assertTrue(doc.text().contains("One"));
+        assertTrue(doc.text().contains("Two"));
+        assertTrue(doc.text().contains("Cell"));
+    }
+
+
+}

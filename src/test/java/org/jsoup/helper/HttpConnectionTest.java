@@ -79,6 +79,9 @@ public class HttpConnectionTest {
         assertEquals("text/html", con.request().header("content-type"));
         assertEquals("keep-alive", con.request().header("Connection"));
         assertEquals("http://example.com", con.request().header("Host"));
+
+        assertEquals("{content-type=text/html, Connection=keep-alive, Host=http://example.com}", con.request().headers().toString());
+
     }
 
     @Test public void sameHeadersCombineWithComma() {
@@ -112,6 +115,7 @@ public class HttpConnectionTest {
         Map<String, List<String>> headers = req.multiHeaders();
         assertEquals(accept, headers.get("Accept"));
         assertEquals("Bar", headers.get("Foo").get(0));
+        assertEquals("{Accept=[Something, Everything], Foo=[Bar]}", req.multiHeaders().toString());
 
         assertTrue(req.hasHeader("Accept"));
         assertTrue(req.hasHeaderWithValue("accept", "Something"));
