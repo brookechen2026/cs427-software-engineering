@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="jsoup-xiaoxic2" default="test" basedir=".">
+
+    <!-- ========== Properties ========== -->
+    <property name="src.main" value="src/main/java"/>
+    <property name="src.test" value="src/test/java"/>
+    <property name="res.test" value="src/test/resources"/>
+
+    <property name="out.main" value="ant-target/classes"/>
+    <property name="out.test" value="ant-target/test-classes"/>
+    <property name="report.dir" value="ant-target/reports"/>
+
+    <!-- ========== Classpath (REQUIRED id) ========== -->
+    <path id="xiaoxic2.classpath">
+        <fileset dir="ant-libs">
+            <include name="*.jar"/>
+        </fileset>
+    </path>
+
+    <!-- ========== Clean ========== -->
+    <target name="clean">
+        <delete dir="ant-target"/>
+    </target>
+
+    <!-- ========== Compile main code ========== -->
+    <target name="build">
+        <mkdir dir="${out.main}"/>
+        <javac srcdir="${src.main}"
+               destdir="${out.main}"
+               includeantruntime="false"
+               encoding="UTF-8">
+            <classpath refid="xiaoxic2.classpath"/>
+        </javac>
+    </target>
+
+    <!-- ========== Compile tests + copy test resources ========== -->
+    <target name="build-test" depends="build">
+        <mkdir dir="${out.test}"/>
+        <javac srcdir="${src.test}"
+               destdir="${out.test}"
+               includeantruntime="false"
+               encoding="UTF-8">
+            <classpath>
+                <path refid="xiaoxic2.classpath"/>
+                <pathelement location="${out.main}"/>
+            </classpath>
+        </javac>
+
+        <!-- Copy test resources so tests can find them -->
+        <copy todir="${out.test}">
+            <fileset dir="${res.test}"/>
+        </copy>
+    </target>
+
+    <!-- ========== Run tests + generate HTML report ========== -->
+    <target name="test" depends="build-test">
+        <mkdir dir="${report.dir}"/>
+        <mkdir dir="${report.dir}/xml"/>
+
+        <!-- Run JUnit tests; save XML results -->
+        <junit fork="true" printsummary="false" haltonfailure="false">
+            <classpath>
+                <path refid="xiaoxic2.classpath"/>
+                <pathelement location="${out.main}"/>
+                <pathelement location="${out.test}"/>
+            </classpath>
+
+            <formatter type="xml"/>
+            <batchtest todir="${report.dir}/xml">
+                <fileset dir="${out.test}">
+                    <include name="org/jsoup/**/*Test.class"/>
+                    <exclude name="**/*Tests.class"/>
+                    <exclude name="**/*$*.class"/>
+                </fileset>
+            </batchtest>
+        </junit>
+
+        <!-- Convert XML results into HTML report under ant-target/reports/html/ -->
+        <junitreport todir="${report.dir}">
+            <fileset dir="${report.dir}/xml">
+                <include name="TEST-*.xml"/>
+            </fileset>
+            <report format="frames" todir="${report.dir}/html"/>
+        </junitreport>
+    </target>
+
+</project>

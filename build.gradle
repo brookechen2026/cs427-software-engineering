@@ -1,0 +1,27 @@
+apply plugin: 'java'
+
+description = 'xiaoxic2'
+buildDir = file('gradle-target')
+
+repositories {
+    maven { url 'https://repo.maven.apache.org/maven2' }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'com.google.code.gson:gson:2.11.0'
+    testImplementation 'javax.servlet:javax.servlet-api:4.0.1'
+
+    testImplementation fileTree(dir: 'ant-libs', include: [
+            'jetty-*.jar',
+            'servlet-*.jar',
+            'javax.servlet-*.jar'
+    ])
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+test {
+}

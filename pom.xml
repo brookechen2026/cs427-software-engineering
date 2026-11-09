@@ -47,6 +47,34 @@
 					<encoding>UTF-8</encoding>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.2.5</version>
+				<configuration>
+					<!-- Course-specific HashMap patch omitted for standalone tests. -->
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>1.22.1</version>
+				<configuration>
+					<targetClasses>
+						<param>org.jsoup.parser.HtmlTreeBuilder</param>
+					</targetClasses>
+					<targetTests>
+						<param>org.jsoup.TestMutants</param>
+					</targetTests>
+					<threads>1</threads>
+					<outputFormats>
+						<param>HTML</param>
+						<param>XML</param>
+					</outputFormats>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
